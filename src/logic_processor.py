@@ -1,5 +1,6 @@
 import io
 import math
+import os
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -14,6 +15,24 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+
+# ─────────────────────────────────────────────
+# CARGA DEL DATAFRAME (singleton al importar)
+# ─────────────────────────────────────────────
+_CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "ejercicios.csv")
+
+def _cargar_df() -> pd.DataFrame:
+    """Carga y normaliza el CSV de ejercicios. Falla con mensaje claro si no existe."""
+    try:
+        df = pd.read_csv(_CSV_PATH, dtype=str).fillna("")
+        df.columns = df.columns.str.strip()
+        df["Es_Compuesto"] = df["Es_Compuesto"].str.strip().eq("1")
+        return df
+    except FileNotFoundError:
+        raise RuntimeError(f"No se encontró el CSV de ejercicios en: {_CSV_PATH}")
+
+# DataFrame global — se carga una sola vez al importar el módulo
+DF_EJERCICIOS: pd.DataFrame = _cargar_df()
 
 # ─────────────────────────────────────────────
 # PALETA DE COLORES
@@ -142,7 +161,7 @@ def construir_programa(d: dict) -> dict:
     ]
 
     # ── Tabla 3: Entrenamiento ──
-    tabla_entrenamiento = _construir_entrenamiento(nivel, objetivo, lesiones, equipo)
+    tabla_entrenamiento = _construir_entrenamiento(nivel, objetivo, lesiones, equipo, dias)
 
     # ── Tabla 4: Nutrición Texto ──
     texto_nut = _texto_nutricion(objetivo, peso, macros)
@@ -202,75 +221,211 @@ def construir_programa(d: dict) -> dict:
     }
 
 # ─────────────────────────────────────────────
-# CONSTRUCCIÓN DEL ENTRENAMIENTO (Tabla 3)
+# MOTOR DE PERIODIZACIÓN — MACROCICLO / MESOCICLO / MICROCICLO
 # ─────────────────────────────────────────────
-def _construir_entrenamiento(nivel: str, objetivo: str, lesiones: str, equipo: str) -> list:
-    """Genera filas de entrenamiento para los 3 meses según perfil."""
-    lesion_lumbar = any(w in lesiones.lower() for w in ["lumbar", "espalda", "hernia", "disco"])
-    lesion_rodilla = any(w in lesiones.lower() for w in ["rodilla", "menisco", "ligamento"])
-    lesion_hombro = any(w in lesiones.lower() for w in ["hombro", "manguito", "rotador"])
-    sin_equipo = any(w in equipo.lower() for w in ["casa", "sin", "cuerpo", "bodyweight"])
 
-    # Selección de ejercicios según restricciones
-    squat = "Sentadilla Goblet" if lesion_lumbar else "Sentadilla Libre"
-    hip_hinge = "Hip Thrust" if lesion_lumbar else "Peso Muerto Rumano"
-    empuje_h = "Flexiones" if (lesion_hombro or sin_equipo) else "Press Banca"
-    empuje_v = "Elevaciones Laterales" if lesion_hombro else ("Press Militar Mancuernas" if sin_equipo else "Press Militar Barra")
-    traccion_h = "Remo en TRX" if sin_equipo else "Remo con Mancuerna"
-    traccion_v = "Jalón al Pecho" if not sin_equipo else "Dominadas Asistidas"
-    unilateral = "Zancada Estática" if lesion_rodilla else "Zancada Caminando"
+# Mapeo de splits según días disponibles por semana
+_SPLITS: dict = {
+    "2": ["Full Body A", "Full Body B"],
+    "3": ["Full Body A", "Full Body B", "Full Body C"],
+    "4": ["Torso", "Pierna", "Torso", "Pierna"],
+    "5": ["Empuje", "Tracción", "Pierna", "Torso", "Pierna"],
+}
 
-    filas = []
+# Patrones de movimiento requeridos por tipo de sesión
+_PATRONES_SESION: dict = {
+    "Full Body A": ["Sentadilla", "Empuje_Horizontal", "Tracción_Horizontal", "Core", "Unilateral"],
+    "Full Body B": ["Bisagra_Cadera", "Empuje_Vertical", "Tracción_Vertical", "Core", "Unilateral"],
+    "Full Body C": ["Sentadilla", "Empuje_Horizontal", "Tracción_Vertical", "Core", "Bisagra_Cadera"],
+    "Torso":       ["Empuje_Horizontal", "Empuje_Vertical", "Tracción_Horizontal", "Tracción_Vertical", "Core"],
+    "Pierna":      ["Sentadilla", "Bisagra_Cadera", "Unilateral", "Core"],
+    "Empuje":      ["Empuje_Horizontal", "Empuje_Vertical", "Core"],
+    "Tracción":    ["Tracción_Horizontal", "Tracción_Vertical", "Core"],
+}
 
-    # MES 1 — Adaptación anatómica
-    mes1 = [
-        (squat,        "3 x 12-15", "RIR 4", "Pecho arriba, rodillas sobre pies, pausa 1s abajo"),
-        (hip_hinge,    "3 x 12",    "RIR 4", "Bisagra de cadera, espalda neutra, empuje de talones"),
-        (empuje_h,     "3 x 12-15", "RIR 4", "Escápulas retraídas, codos a 45°"),
-        (traccion_h,   "3 x 12-15", "RIR 4", "Codo pegado al cuerpo, retracción escapular"),
-        (empuje_v,     "3 x 12",    "RIR 4", "Core activo, no arquear lumbar"),
-        (traccion_v,   "3 x 12",    "RIR 4", "Tirar con codos, no con manos"),
-        ("Plancha",    "3 x 30-45s","Tiempo", "Cuerpo recto, glúteos activos, respiración"),
-        (unilateral,   "3 x 10/lado","RIR 4", "Rodilla delantera no supera punta del pie"),
-    ]
-    for ej, sr, peso, obj_tec in mes1:
-        filas.append({"Mes": 1, "Titulo_Mes": "Adaptación Anatómica",
-                      "Ejercicio": ej, "Series_Reps": sr,
-                      "Peso": peso, "Objetivo_Tecnico": obj_tec})
+# Configuración de mesociclos (3 meses × 4 semanas)
+_MESOCICLOS = [
+    {"mes": 1, "titulo": "Adaptación Anatómica", "rir": "RIR 4", "series_base": 3, "reps": "12-15"},
+    {"mes": 2, "titulo": "Sobrecarga Progresiva", "rir": "RIR 3", "series_base": 4, "reps": "10-12"},
+    {"mes": 3, "titulo": "Intensificación",       "rir": "RIR 2", "series_base": 4, "reps": "6-8"},
+]
 
-    # MES 2 — Volumen / Hipertrofia
-    mes2 = [
-        (squat,        "4 x 10-12", "RIR 3", "Aumentar ROM progresivamente"),
-        (hip_hinge,    "4 x 10",    "RIR 3", "Controlar excéntrico 3 segundos"),
-        (empuje_h,     "4 x 10-12", "RIR 3", "Rango completo, pausa en pecho"),
-        (traccion_h,   "4 x 10-12", "RIR 3", "Squeeze en contracción máxima"),
-        (empuje_v,     "4 x 10",    "RIR 3", "Progresión de carga si técnica es sólida"),
-        (traccion_v,   "4 x 10",    "RIR 3", "Depresión escapular antes de tirar"),
-        ("Plancha Dinámica", "3 x 40s", "Tiempo", "Alternar elevación de pierna/brazo"),
-        (unilateral,   "3 x 12/lado","RIR 3", "Añadir mancuerna si hay control"),
-        ("Face Pull",  "3 x 15",    "RIR 3", "Salud de hombro, codos altos"),
-    ]
-    for ej, sr, peso, obj_tec in mes2:
-        filas.append({"Mes": 2, "Titulo_Mes": "Volumen e Hipertrofia",
-                      "Ejercicio": ej, "Series_Reps": sr,
-                      "Peso": peso, "Objetivo_Tecnico": obj_tec})
+# Semanas de deload (última semana de cada mes)
+_SEMANAS_DELOAD = {4, 8, 12}
 
-    # MES 3 — Intensificación
-    mes3 = [
-        (squat,        "4 x 6-8",   "RIR 2", "Velocidad intencional en concéntrico"),
-        (hip_hinge,    "4 x 6-8",   "RIR 2", "Carga máxima con técnica impecable"),
-        (empuje_h,     "4 x 6-8",   "RIR 2", "Progresión de carga semanal +2.5kg"),
-        (traccion_h,   "4 x 8",     "RIR 2", "Añadir lastre o banda de resistencia"),
-        (empuje_v,     "4 x 8",     "RIR 2", "Tempo 2-0-1, explosivo en subida"),
-        (traccion_v,   "4 x 8",     "RIR 2", "Peso máximo con rango completo"),
-        ("Ab Wheel",   "3 x 10",    "RIR 2", "Core antiextensión, no hundir lumbar"),
-        (unilateral,   "4 x 10/lado","RIR 2","Mancuerna en cada mano"),
-        ("Face Pull",  "3 x 12",    "RIR 2", "Mantenimiento salud articular"),
-    ]
-    for ej, sr, peso, obj_tec in mes3:
-        filas.append({"Mes": 3, "Titulo_Mes": "Intensificación",
-                      "Ejercicio": ej, "Series_Reps": sr,
-                      "Peso": peso, "Objetivo_Tecnico": obj_tec})
+
+def _filtrar_df(lesiones: str, equipo: str) -> pd.DataFrame:
+    """
+    Aplica filtros de seguridad y equipamiento al DataFrame global.
+    Retorna un DataFrame limpio listo para selección de ejercicios.
+    """
+    df = DF_EJERCICIOS.copy()
+
+    # ── Filtro de equipamiento ──
+    sin_maquinas = any(w in equipo.lower() for w in ["casa", "sin", "cuerpo", "bodyweight", "peso corporal"])
+    if sin_maquinas:
+        df = df[df["Equipamiento"].isin(["Peso Corporal", "Mancuerna"])]
+
+    # ── Filtros de lesión ──
+    lesiones_lower = lesiones.lower()
+    if any(w in lesiones_lower for w in ["lumbar", "espalda", "hernia", "disco"]):
+        df = df[df["Flag_Lesion"] != "Evitar_Lumbar"]
+    if any(w in lesiones_lower for w in ["rodilla", "menisco", "ligamento"]):
+        df = df[df["Flag_Lesion"] != "Evitar_Rodilla"]
+    if any(w in lesiones_lower for w in ["hombro", "manguito", "rotador"]):
+        df = df[df["Flag_Lesion"] != "Evitar_Hombro"]
+
+    return df.reset_index(drop=True)
+
+
+def _seleccionar_ejercicios(
+    df: pd.DataFrame,
+    patrones: list,
+    nivel: str,
+    variante: int = 0,
+) -> list:
+    """
+    Para cada patrón de movimiento requerido en la sesión, selecciona
+    un ejercicio del DataFrame filtrado.
+
+    - `variante` (0 o 1) alterna la selección para generar variabilidad
+      intra-semanal entre sesiones del mismo tipo (ej: Torso A vs Torso B).
+    - Prioriza ejercicios del nivel del usuario; si no hay, usa Principiante.
+    - Prioriza compuestos para patrones principales, accesorios para Core.
+    """
+    seleccionados = []
+    niveles_fallback = [nivel, "Principiante", "Intermedio", "Avanzado"]
+
+    for patron in patrones:
+        candidatos = df[df["Patron"] == patron].copy()
+        if candidatos.empty:
+            continue
+
+        # Prioridad de nivel
+        for lvl in niveles_fallback:
+            subset = candidatos[candidatos["Nivel"] == lvl]
+            if not subset.empty:
+                candidatos = subset
+                break
+
+        # Para Core no forzar compuesto
+        if patron != "Core":
+            compuestos = candidatos[candidatos["Es_Compuesto"]]
+            if not compuestos.empty:
+                candidatos = compuestos
+
+        # Variabilidad: índice rotado por variante
+        idx = variante % len(candidatos)
+        fila = candidatos.iloc[idx]
+
+        seleccionados.append({
+            "Ejercicio":        fila["Nombre_ES"],
+            "Patron":           patron,
+            "Objetivo_Tecnico": fila["Objetivo_Tecnico"],
+            "_es_compuesto":    bool(fila["Es_Compuesto"]),
+        })
+
+    return seleccionados
+
+
+def _aplicar_periodizacion(
+    ejercicios: list,
+    mes_cfg: dict,
+    semana: int,
+) -> list:
+    """
+    Aplica las reglas de periodización a una lista de ejercicios:
+    - Deload en semanas 4, 8, 12: series × 0.7 redondeado, RIR 4.
+    - Mes 2+: +1 serie en compuestos respecto al base.
+    """
+    es_deload = semana in _SEMANAS_DELOAD
+    rir  = "RIR 4 (DELOAD)" if es_deload else mes_cfg["rir"]
+    reps = "12-15" if es_deload else mes_cfg["reps"]
+
+    resultado = []
+    for ej in ejercicios:
+        series_base = mes_cfg["series_base"]
+
+        # +1 serie en compuestos a partir del mes 2
+        if mes_cfg["mes"] >= 2 and ej.get("_es_compuesto", False):
+            series_base += 1
+
+        # Deload: reducir 30% redondeando hacia abajo
+        if es_deload:
+            series_base = max(2, int(series_base * 0.7))
+
+        resultado.append({
+            "Ejercicio":        ej["Ejercicio"],
+            "Objetivo_Tecnico": ej["Objetivo_Tecnico"],
+            "Series_Reps":      f"{series_base} x {reps}",
+            "Carga":            rir,
+        })
+
+    return resultado
+
+
+def _construir_entrenamiento(
+    nivel: str,
+    objetivo: str,
+    lesiones: str,
+    equipo: str,
+    dias_semana: str,
+) -> list:
+    """
+    Motor principal de periodización.
+
+    Genera el Macrociclo completo (12 semanas) estructurado en:
+      - 3 Mesociclos (meses) con progresión de RIR y volumen
+      - Microciclos semanales con splits dinámicos según días disponibles
+      - Deload automático en semanas 4, 8 y 12
+      - Selección de ejercicios desde CSV con variabilidad intra-semanal
+
+    Retorna lista de dicts con contrato:
+      {Mes, Titulo_Mes, Semana, Semana_Label, Sesion, Ejercicio, Series_Reps, Carga, Objetivo_Tecnico}
+    """
+    dias_key = str(dias_semana).strip()
+    if dias_key not in _SPLITS:
+        dias_key = "3"  # fallback seguro
+
+    split_sesiones = _SPLITS[dias_key]
+    df_filtrado    = _filtrar_df(lesiones, equipo)
+
+    filas: list = []
+    semana_global = 0
+
+    for mes_cfg in _MESOCICLOS:
+        for semana_mes in range(1, 5):          # 4 semanas por mes
+            semana_global += 1
+            deload_flag = " ⚡ DELOAD" if semana_global in _SEMANAS_DELOAD else ""
+
+            for dia_idx, nombre_sesion in enumerate(split_sesiones):
+                patrones = _PATRONES_SESION.get(nombre_sesion, [])
+
+                # variante alterna entre sesiones del mismo nombre en la semana
+                # (ej: dos "Torso" en split 4 días → variante 0 y 1)
+                variante = dia_idx % 2
+
+                ejercicios_raw = _seleccionar_ejercicios(
+                    df_filtrado, patrones, nivel, variante=variante
+                )
+                ejercicios_periodizados = _aplicar_periodizacion(
+                    ejercicios_raw, mes_cfg, semana_global
+                )
+
+                label_sesion = f"Día {dia_idx + 1}: {nombre_sesion}"
+
+                for ej in ejercicios_periodizados:
+                    filas.append({
+                        "Mes":              mes_cfg["mes"],
+                        "Titulo_Mes":       mes_cfg["titulo"],
+                        "Semana":           semana_global,
+                        "Semana_Label":     f"Semana {semana_global}{deload_flag}",
+                        "Sesion":           label_sesion,
+                        "Ejercicio":        ej["Ejercicio"],
+                        "Series_Reps":      ej["Series_Reps"],
+                        "Carga":            ej["Carga"],
+                        "Objetivo_Tecnico": ej["Objetivo_Tecnico"],
+                    })
 
     return filas
 
@@ -299,6 +454,7 @@ def _texto_nutricion(objetivo: str, peso: float, macros: dict) -> dict:
         "proteinas":     f"{macros['prot_g']}g/día · Pollo, huevo, atún, legumbres, proteína en polvo",
         "carbohidratos": f"{macros['carb_g']}g/día · Avena, arroz integral, papa, frutas, verduras",
         "grasas":        f"{macros['gras_g']}g/día · Palta, aceite de oliva, frutos secos, salmón",
+
     }
 
 # ─────────────────────────────────────────────
@@ -417,30 +573,72 @@ def generar_pdf_rutina(datos_usuario: dict) -> io.BytesIO:
     E.append(bio_tabla)
     E.append(Spacer(1, 0.15*inch))
 
-    # ── ENTRENAMIENTO por mes ──
+    # ── ENTRENAMIENTO por mes → semana → sesión ──
     E.append(PageBreak())
     E.append(Paragraph("🏋️ Programa de Entrenamiento — 12 Semanas", estilos["subtitulo"]))
     E.append(HRFlowable(width="100%", thickness=1, color=C_FONDO_CLARO, spaceAfter=6))
 
+    filas_ent = programa["entrenamiento"]
+
     for mes_num in [1, 2, 3]:
-        filas_mes = [r for r in programa["entrenamiento"] if r["Mes"] == mes_num]
+        filas_mes = [r for r in filas_ent if r["Mes"] == mes_num]
         if not filas_mes:
             continue
+
         titulo_mes = filas_mes[0]["Titulo_Mes"]
         E.append(Paragraph(f"Mes {mes_num}: {titulo_mes}", estilos["seccion"]))
 
-        headers = ["Ejercicio", "Series/Reps", "Carga", "Objetivo Técnico"]
-        rows = [headers] + [
-            [r["Ejercicio"], r["Series_Reps"], r["Peso"], r["Objetivo_Tecnico"]]
-            for r in filas_mes
-        ]
-        col_w = [1.8*inch, 1.1*inch, 0.9*inch, 3.0*inch]
-        t = Table(rows, colWidths=col_w)
-        t.setStyle(_estilo_tabla_header())
-        # Alinear objetivo técnico a la izquierda
-        t.setStyle(TableStyle([('ALIGN', (3, 1), (3, -1), 'LEFT')]))
-        E.append(t)
-        E.append(Spacer(1, 0.12*inch))
+        # Agrupar por semana dentro del mes
+        semanas = sorted({r["Semana"] for r in filas_mes})
+        for semana in semanas:
+            filas_semana = [r for r in filas_mes if r["Semana"] == semana]
+            semana_label = filas_semana[0]["Semana_Label"]
+
+            # Estilo especial para semanas de deload
+            es_deload = "DELOAD" in semana_label
+            color_header = colors.HexColor("#F59E0B") if es_deload else C_SECUNDARIO
+            E.append(Paragraph(semana_label, ParagraphStyle(
+                "sem_label",
+                parent=getSampleStyleSheet()["Normal"],
+                fontSize=9, textColor=color_header,
+                fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=2,
+            )))
+
+            # Agrupar por sesión dentro de la semana
+            sesiones = sorted({r["Sesion"] for r in filas_semana},
+                              key=lambda s: int(s.split(":")[0].replace("Día", "").strip()))
+            for sesion in sesiones:
+                filas_sesion = [r for r in filas_semana if r["Sesion"] == sesion]
+
+                headers = ["Ejercicio", "Series/Reps", "Carga", "Objetivo Técnico"]
+                rows = [headers] + [
+                    [r["Ejercicio"], r["Series_Reps"], r["Carga"], r["Objetivo_Tecnico"]]
+                    for r in filas_sesion
+                ]
+                col_w = [1.7*inch, 1.1*inch, 1.0*inch, 2.9*inch]
+                t = Table(rows, colWidths=col_w)
+                t.setStyle(_estilo_tabla_header())
+                t.setStyle(TableStyle([('ALIGN', (3, 1), (3, -1), 'LEFT')]))
+
+                # Encabezado de sesión como fila coloreada
+                sesion_header = Table(
+                    [[Paragraph(sesion, ParagraphStyle(
+                        "ses_h", parent=getSampleStyleSheet()["Normal"],
+                        fontSize=8, textColor=C_BLANCO, fontName="Helvetica-Bold"
+                    ))]],
+                    colWidths=[6.7*inch]
+                )
+                sesion_header.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), C_PRIMARIO),
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ]))
+                E.append(sesion_header)
+                E.append(t)
+                E.append(Spacer(1, 0.06*inch))
+
+        E.append(Spacer(1, 0.1*inch))
 
     # ── NUTRICIÓN ──
     E.append(PageBreak())

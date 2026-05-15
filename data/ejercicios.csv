@@ -1,5 +1,49 @@
-ID_Ejercicio,Patron,Nombre_ES,Nivel
-101,Sentadilla,Sentadilla Copa,Principiante
-102,Sentadilla,Sentadilla Tras Nuca,Intermedio
-301,Empuje,Press Banca,Principiante
-501,Tracción,Remo con Mancuerna,Principiante
+ID_Ejercicio,Patron,Sesion_Tipo,Nombre_ES,Nivel,Equipamiento,Flag_Lesion,Objetivo_Tecnico,Es_Compuesto
+101,Sentadilla,Pierna,Sentadilla Libre,Principiante,Barra,Evitar_Lumbar,Pecho arriba rodillas sobre pies pausa 1s abajo,1
+102,Sentadilla,Pierna,Sentadilla Goblet,Principiante,Mancuerna,Seguro_Lumbar,Codo bajo copa talones en suelo descenso controlado,1
+103,Sentadilla,Pierna,Sentadilla Búlgara,Intermedio,Mancuerna,Evitar_Rodilla,Pie trasero elevado rodilla delantera alineada,1
+104,Sentadilla,Pierna,Sentadilla Hack,Intermedio,Máquina,Seguro_Lumbar,Espalda pegada al pad descenso a 90 grados,1
+105,Sentadilla,Pierna,Prensa de Piernas,Principiante,Máquina,Seguro_Lumbar,Pies a la anchura de hombros no bloquear rodillas,1
+106,Sentadilla,Pierna,Sentadilla Sumo,Principiante,Mancuerna,Seguro_Lumbar,Pies abiertos puntas hacia afuera descenso vertical,1
+201,Bisagra_Cadera,Pierna,Peso Muerto Convencional,Intermedio,Barra,Evitar_Lumbar,Barra pegada al cuerpo espalda neutra empuje de suelo,1
+202,Bisagra_Cadera,Pierna,Peso Muerto Rumano,Principiante,Barra,Evitar_Lumbar,Bisagra de cadera espalda neutra empuje de talones,1
+203,Bisagra_Cadera,Pierna,Hip Thrust,Principiante,Barra,Seguro_Lumbar,Mentón al pecho glúteo apretado en extensión completa,1
+204,Bisagra_Cadera,Pierna,Good Morning,Intermedio,Barra,Evitar_Lumbar,Bisagra lenta espalda neutra sin redondear,1
+205,Bisagra_Cadera,Pierna,Peso Muerto Sumo,Intermedio,Barra,Evitar_Lumbar,Pies anchos agarre interior espalda recta,1
+206,Bisagra_Cadera,Pierna,Curl Femoral Tumbado,Principiante,Máquina,Seguro_Lumbar,Cadera pegada al pad contracción máxima arriba,0
+301,Empuje_Horizontal,Torso,Press Banca Barra,Principiante,Barra,Evitar_Hombro,Escápulas retraídas codos a 45 grados rango completo,1
+302,Empuje_Horizontal,Torso,Press Banca Mancuernas,Principiante,Mancuerna,Evitar_Hombro,Rango completo pausa en pecho rotación neutra,1
+303,Empuje_Horizontal,Torso,Flexiones,Principiante,Peso Corporal,Seguro_Hombro,Cuerpo recto codos a 45 pecho toca el suelo,1
+304,Empuje_Horizontal,Torso,Press Inclinado Mancuernas,Intermedio,Mancuerna,Evitar_Hombro,Banco a 30 grados codos controlados no flaring,1
+305,Empuje_Horizontal,Torso,Aperturas Mancuernas,Intermedio,Mancuerna,Evitar_Hombro,Arco amplio codos ligeramente flexionados squeeze arriba,0
+306,Empuje_Horizontal,Torso,Flexiones Diamante,Intermedio,Peso Corporal,Seguro_Hombro,Manos juntas codos pegados al cuerpo,0
+401,Empuje_Vertical,Torso,Press Militar Barra,Intermedio,Barra,Evitar_Hombro,Core activo no arquear lumbar codos adelante,1
+402,Empuje_Vertical,Torso,Press Militar Mancuernas,Principiante,Mancuerna,Evitar_Hombro,Codos a 90 grados subida explosiva bajada controlada,1
+403,Empuje_Vertical,Torso,Elevaciones Laterales,Principiante,Mancuerna,Seguro_Hombro,Codos ligeramente flexionados no superar hombros,0
+404,Empuje_Vertical,Torso,Arnold Press,Intermedio,Mancuerna,Evitar_Hombro,Rotación completa de muñeca rango máximo,1
+405,Empuje_Vertical,Torso,Press Arnold Unilateral,Avanzado,Mancuerna,Evitar_Hombro,Control total del core rotación lenta,1
+501,Tracción_Horizontal,Torso,Remo con Mancuerna,Principiante,Mancuerna,Seguro_Lumbar,Codo pegado al cuerpo retracción escapular squeeze,1
+502,Tracción_Horizontal,Torso,Remo en Barra,Intermedio,Barra,Evitar_Lumbar,Torso a 45 grados codos hacia atrás no redondear,1
+503,Tracción_Horizontal,Torso,Remo en Máquina,Principiante,Máquina,Seguro_Lumbar,Pecho en el pad tirar con codos no con manos,1
+504,Tracción_Horizontal,Torso,Face Pull,Principiante,Polea,Seguro_Hombro,Codos altos manos a la altura de orejas retracción,0
+505,Tracción_Horizontal,Torso,Remo en TRX,Principiante,Peso Corporal,Seguro_Lumbar,Cuerpo recto codos atrás squeeze escapular,1
+506,Tracción_Horizontal,Torso,Remo Invertido,Principiante,Peso Corporal,Seguro_Lumbar,Barra a la altura del pecho cuerpo recto,1
+601,Tracción_Vertical,Torso,Jalón al Pecho,Principiante,Polea,Seguro_Hombro,Depresión escapular antes de tirar codos hacia cadera,1
+602,Tracción_Vertical,Torso,Dominadas,Intermedio,Peso Corporal,Seguro_Hombro,Muerto colgado depresión escapular pecho al bar,1
+603,Tracción_Vertical,Torso,Dominadas Asistidas,Principiante,Máquina,Seguro_Hombro,Misma técnica que dominadas con asistencia de banda,1
+604,Tracción_Vertical,Torso,Pullover Mancuerna,Intermedio,Mancuerna,Seguro_Hombro,Arco amplio codos ligeramente flexionados,0
+605,Tracción_Vertical,Torso,Jalón Neutro,Principiante,Polea,Seguro_Hombro,Agarre neutro codos hacia cadera retracción escapular,1
+701,Core,Full Body,Plancha,Principiante,Peso Corporal,Seguro_Lumbar,Cuerpo recto glúteos activos respiración diafragmática,0
+702,Core,Full Body,Plancha Lateral,Principiante,Peso Corporal,Seguro_Lumbar,Cadera elevada cuerpo alineado no hundir pelvis,0
+703,Core,Full Body,Ab Wheel,Intermedio,Accesorio,Evitar_Lumbar,Antiextensión no hundir lumbar control total,0
+704,Core,Full Body,Dead Bug,Principiante,Peso Corporal,Seguro_Lumbar,Lumbar pegada al suelo extensión contralateral lenta,0
+705,Core,Full Body,Pallof Press,Principiante,Polea,Seguro_Lumbar,Antirrotación core activo no girar el torso,0
+706,Core,Full Body,Plancha Dinámica,Intermedio,Peso Corporal,Seguro_Lumbar,Alternar elevación de pierna o brazo sin rotar cadera,0
+801,Unilateral,Pierna,Zancada Caminando,Principiante,Mancuerna,Evitar_Rodilla,Rodilla delantera no supera punta del pie torso erguido,1
+802,Unilateral,Pierna,Zancada Estática,Principiante,Mancuerna,Seguro_Rodilla,Descenso vertical rodilla trasera cerca del suelo,1
+803,Unilateral,Pierna,Step Up,Principiante,Mancuerna,Seguro_Rodilla,Empuje con talón de pierna delantera no impulso trasero,1
+804,Unilateral,Pierna,Extensión Unilateral,Principiante,Máquina,Seguro_Rodilla,Rango completo contracción en extensión máxima,0
+805,Unilateral,Pierna,Curl Femoral Unilateral,Principiante,Máquina,Seguro_Lumbar,Cadera pegada contracción máxima bajada controlada,0
+901,Movilidad,Full Body,Movilidad de Cadera,Principiante,Peso Corporal,Seguro_Lumbar,Movimiento controlado sin dolor amplitud progresiva,0
+902,Movilidad,Full Body,Movilidad de Hombro,Principiante,Peso Corporal,Seguro_Hombro,Rotación interna y externa sin compensar con torso,0
+903,Movilidad,Full Body,Movilidad Torácica,Principiante,Peso Corporal,Seguro_Lumbar,Extensión torácica sin hiperextender lumbar,0
